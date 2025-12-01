@@ -16,4 +16,9 @@ export default createVuetify({
   theme: {
     defaultTheme: 'system',
   },
+  defaults: {
+    VBtn: {
+      style: 'text-transform: none;',
+    },
+  },
 })

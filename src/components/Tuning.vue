@@ -138,11 +138,15 @@ const temperament = ref(Temperament.EvenTempered);
 
 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
 const gain = audioCtx.createGain();
-gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // Set volume
+gain.gain.setValueAtTime(0.2, audioCtx.currentTime); // Set volume
 gain.connect(audioCtx.destination);
 
 let oscillators = [] as OscillatorNode[];
-function create_oscillators() {
+async function create_oscillators() {
+  if (oscillators.length > 0) {
+    await clear_oscillators();
+  }
+  await set_gain(0.0001);
   oscillators = sortedNotes.value.map(index => {
     const osc = audioCtx.createOscillator();
     osc.type = 'sine';
@@ -154,14 +158,18 @@ function create_oscillators() {
     osc.start();
     return osc;
   });
+  await set_gain(muted.value ? 0.0001 : 0.2);
 }
 
-function clear_oscillators() {
+async function clear_oscillators() {
+  if (oscillators.length === 0) return;
+  await set_gain(0.0001);
   oscillators.forEach(osc => {
     osc.stop();
     osc.disconnect();
   });
   oscillators = [];
+  await set_gain(muted.value ? 0.0001 : 0.2);
 }
 
 const notenames = ref(['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']);
@@ -170,28 +178,28 @@ const rawSelection = ref([] as number[]);
 const muted = ref(false);
 
 watch(rawSelection, (newVal: number[], oldValue: number[]) => {
-    clear_oscillators();
-    if (newVal.length > 0) {
-        create_oscillators();
-    }
+    create_oscillators();
 });
 
 watch(temperament, () => {
     // Recreate oscillators to reflect frequency changes
-    clear_oscillators();
-    if (rawSelection.value.length > 0) {
-        create_oscillators();
-    }
+    create_oscillators();
 });
 
 watch(muted, (newVal) => {
-        gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime); 
     if (newVal) {
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + .03);
+      set_gain(0.0001);
     } else {
-        gain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + .03);
+      set_gain(0.2);
     }
 });
+
+async function set_gain(value: number) {
+  const delay = 0.02;
+  gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime); 
+  gain.gain.exponentialRampToValueAtTime(value, audioCtx.currentTime + delay);
+  return new Promise(resolve => setTimeout(resolve, delay * 1000));
+}
 
 const sortedNotes = computed(() => {
     const selectedCopy = rawSelection.value.slice();

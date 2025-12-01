@@ -31,6 +31,13 @@
             <v-btn @click="rawSelection = []" class="clear-button" density="compact">
               Clear
             </v-btn>
+            <v-select
+              v-model="temperament"
+              :items="[Temperament.EvenTempered, Temperament.QuarterCommaMeantone, Temperament.Just]"
+              label="Select Temperament"
+              density="compact"
+              style="max-width: 250px; margin-top: 10px;"
+            ></v-select>
           <div class="selected-notes">
             <h3>Selected Notes:</h3>
             {{  sortedNotes.map(index => notenames[index % 12]).join(', ') }}
@@ -44,6 +51,12 @@
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue';
 
+enum Temperament {
+  EvenTempered = "Even Tempered", 
+  QuarterCommaMeantone = "Quarter-Comma Meantone",
+  Just = "Just Intonation"
+};
+
 // Frequencies. TODO: encapsulate somewhere else.
 const middle_c_freq = 261.6255653005986; // Middle C (C4) frequency in Hz
 const even_tempered_ratio = Math.pow(2, 1 / 12); // Twelfth root of 2
@@ -51,9 +64,49 @@ const even_tempered_frequncies = Array.from({ length: 12 }, (_, i) =>
     middle_c_freq * Math.pow(even_tempered_ratio, i)
 );
 
+const qalpha = Math.pow(5, 0.25);
+const qalphai = 1 / qalpha;
+const quartercomma_ratios = [
+    1, // C
+    1 * qalphai ** 5 * 8, // C♯
+    1 * qalpha ** 2 / 2, // D
+    1 * qalphai ** 3 * 4, // E♭
+    1 * qalpha ** 4 / 4, // E
+    1 * qalphai * 2, // F
+    1 * qalpha ** 6 / 8, // F♯
+    1 * qalpha, // G
+    1 * qalphai ** 4 * 8, // A♭
+    1 * qalpha ** 3 / 2, // A
+    1 * qalphai ** 2 * 4, // B♭
+    1 * qalpha ** 5 / 4 // B
+];
+
+const just_ratios = [
+    1,          // C
+    16 / 15,   // C♯
+    9 / 8,     // D
+    6 / 5,     // E♭
+    5 / 4,     // E
+    4 / 3,     // F
+    45 / 32,   // F♯
+    3 / 2,     // G
+    8 / 5,     // A♭
+    5 / 3,     // A
+    16 / 9,     // B♭
+    15 / 8     // B
+];
+
 const frequencies = computed(() => {
-  even_tempered_frequncies
+  if (temperament.value === Temperament.QuarterCommaMeantone) {
+    return quartercomma_ratios.map(ratio => middle_c_freq * ratio);
+  } else if (temperament.value === Temperament.Just) {
+    return just_ratios.map(ratio => middle_c_freq * ratio);
+  } else {
+    return even_tempered_frequncies;
+  }
 });
+
+const temperament = ref(Temperament.EvenTempered);
 
 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
 const gain = audioCtx.createGain();
@@ -65,7 +118,7 @@ function create_oscillators() {
   oscillators = sortedNotes.value.map(index => {
     const osc = audioCtx.createOscillator();
     osc.type = 'sine';
-    const baseFreq = even_tempered_frequncies[index % 12] ?? middle_c_freq;
+    const baseFreq = frequencies.value[index % 12] ?? middle_c_freq;
     const octaveMultiplier = Math.pow(2, Math.floor(index / 12));
     const freq = baseFreq * octaveMultiplier;
     osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
@@ -86,9 +139,18 @@ function clear_oscillators() {
 const notenames = ref(['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']);
 const rawSelection = ref([] as number[]);
 
+
 watch(rawSelection, (newVal: number[], oldValue: number[]) => {
     clear_oscillators();
     if (newVal.length > 0) {
+        create_oscillators();
+    }
+});
+
+watch(temperament, () => {
+    // Recreate oscillators to reflect frequency changes
+    clear_oscillators();
+    if (rawSelection.value.length > 0) {
         create_oscillators();
     }
 });

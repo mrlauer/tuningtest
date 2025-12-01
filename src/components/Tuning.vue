@@ -31,6 +31,14 @@
             <v-btn @click="rawSelection = []" class="clear-button" density="compact">
               Clear
             </v-btn>
+            <v-btn 
+              @click="muted = !muted;" 
+              :active="muted"
+              :color="muted ? 'primary' : 'default'" 
+              class="mute-button" 
+              density="compact">
+              Mute
+            </v-btn>
             <v-select
               v-model="temperament"
               :items="[Temperament.EvenTempered, Temperament.QuarterCommaMeantone,Temperament.ThirdCommaMeantone, Temperament.Just]"
@@ -159,6 +167,7 @@ function clear_oscillators() {
 const notenames = ref(['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']);
 const rawSelection = ref([] as number[]);
 
+const muted = ref(false);
 
 watch(rawSelection, (newVal: number[], oldValue: number[]) => {
     clear_oscillators();
@@ -172,6 +181,15 @@ watch(temperament, () => {
     clear_oscillators();
     if (rawSelection.value.length > 0) {
         create_oscillators();
+    }
+});
+
+watch(muted, (newVal) => {
+        gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime); 
+    if (newVal) {
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + .03);
+    } else {
+        gain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + .03);
     }
 });
 
@@ -190,7 +208,7 @@ const sortedNotes = computed(() => {
   height: 40px;
   min-height: 40px;
 }
-.clear-button {
-  margin: 10px 0 5px 0;
+.clear-button, .mute-button {
+  margin: 10px 5px 5px 0;
 }
 </style>

@@ -33,7 +33,7 @@
             </v-btn>
             <v-select
               v-model="temperament"
-              :items="[Temperament.EvenTempered, Temperament.QuarterCommaMeantone, Temperament.Just]"
+              :items="[Temperament.EvenTempered, Temperament.QuarterCommaMeantone,Temperament.ThirdCommaMeantone, Temperament.Just]"
               label="Select Temperament"
               density="compact"
               style="max-width: 250px; margin-top: 10px;"
@@ -53,7 +53,8 @@ import { ref, computed, watch } from 'vue';
 
 enum Temperament {
   EvenTempered = "Even Tempered", 
-  QuarterCommaMeantone = "Quarter-Comma Meantone",
+  QuarterCommaMeantone = "1/4 Comma Meantone",
+  ThirdCommaMeantone = "1/3 Comma Meantone",
   Just = "Just Intonation"
 };
 
@@ -81,6 +82,23 @@ const quartercomma_ratios = [
     1 * qalpha ** 5 / 4 // B
 ];
 
+const talphai = Math.pow(3 / 10, 1 / 3);
+const talpha = 1 / talphai; 
+const third_comma_ratios = [
+    1, // C
+    1 * talphai ** 5 * 8, // C♯
+    1 * talpha ** 2 / 2, // D
+    1 * talphai ** 3 * 4, // E♭
+    1 * talpha ** 4 / 4, // E
+    1 * talphai * 2, // F
+    1 * talpha ** 6 / 8, // F♯
+    1 * talpha, // G
+    1 * talphai ** 4 * 8, // A♭
+    1 * talpha ** 3 / 2, // A
+    1 * talphai ** 2 * 4, // B♭
+    1 * talpha ** 5 / 4 // B
+];
+
 const just_ratios = [
     1,          // C
     16 / 15,   // C♯
@@ -99,6 +117,8 @@ const just_ratios = [
 const frequencies = computed(() => {
   if (temperament.value === Temperament.QuarterCommaMeantone) {
     return quartercomma_ratios.map(ratio => middle_c_freq * ratio);
+  } else if (temperament.value === Temperament.ThirdCommaMeantone) {
+    return third_comma_ratios.map(ratio => middle_c_freq * ratio);
   } else if (temperament.value === Temperament.Just) {
     return just_ratios.map(ratio => middle_c_freq * ratio);
   } else {

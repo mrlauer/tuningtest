@@ -136,18 +136,31 @@ const frequencies = computed(() => {
 
 const temperament = ref(Temperament.EvenTempered);
 
+const muted = ref(false);
+
 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-const gain = audioCtx.createGain();
+const gain: GainNode = audioCtx.createGain();
 gain.gain.setValueAtTime(0.2, audioCtx.currentTime); // Set volume
 gain.connect(audioCtx.destination);
 
-let oscillators = [] as OscillatorNode[];
+let oscillators = ref([] as OscillatorNode[]);
+
+const desired_gain = computed(() => {
+  if (muted.value) {
+    return 0.0001;
+  } else if (oscillators.value.length > 0) {
+    return Math.min(0.2, 0.2 / oscillators.value.length);
+  } else {
+    return 0.2;
+  }
+});
+
 async function create_oscillators() {
-  if (oscillators.length > 0) {
+  if (oscillators.value.length > 0) {
     await clear_oscillators();
   }
   await set_gain(0.0001);
-  oscillators = sortedNotes.value.map(index => {
+  oscillators.value = sortedNotes.value.map(index => {
     const osc = audioCtx.createOscillator();
     osc.type = 'sine';
     const baseFreq = frequencies.value[index % 12] ?? middle_c_freq;
@@ -158,24 +171,22 @@ async function create_oscillators() {
     osc.start();
     return osc;
   });
-  await set_gain(muted.value ? 0.0001 : 0.2);
+  await set_gain(desired_gain.value);
 }
 
 async function clear_oscillators() {
-  if (oscillators.length === 0) return;
+  if (oscillators.value.length === 0) return;
   await set_gain(0.0001);
-  oscillators.forEach(osc => {
+  oscillators.value.forEach(osc => {
     osc.stop();
     osc.disconnect();
   });
-  oscillators = [];
+  oscillators.value = [];
   await set_gain(muted.value ? 0.0001 : 0.2);
 }
 
 const notenames = ref(['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']);
 const rawSelection = ref([] as number[]);
-
-const muted = ref(false);
 
 watch(rawSelection, (newVal: number[], oldValue: number[]) => {
     create_oscillators();

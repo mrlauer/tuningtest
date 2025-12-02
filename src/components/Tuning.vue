@@ -50,6 +50,10 @@
             <h3>Selected Notes:</h3>
             {{  sortedNotes.map(index => notenames[index % 12]).join(', ') }}
           </div>
+          <div class="current-frequencies" style="margin-top: 10px;">
+            <h3>Current Frequencies:</h3>
+            {{  current_frequencies.join(', ') }}
+          </div>
         </v-col>
       </v-row>
     </v-container>
@@ -57,7 +61,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 
 enum Temperament {
   EvenTempered = "Even Tempered", 
@@ -145,6 +149,18 @@ gain.connect(audioCtx.destination);
 
 let oscillators = ref([] as OscillatorNode[]);
 
+function desired_frequencies() {
+  return sortedNotes.value.map(index => {
+    const baseFreq = frequencies.value[index % 12] ?? middle_c_freq;
+    const octaveMultiplier = Math.pow(2, Math.floor(index / 12));
+    return baseFreq * octaveMultiplier;
+  });
+}
+
+const current_frequencies = computed(() => {
+  return desired_frequencies().map(freq => freq.toFixed(2));
+});
+
 const desired_gain = computed(() => {
   if (muted.value) {
     return 0.0001;
@@ -156,16 +172,20 @@ const desired_gain = computed(() => {
 });
 
 async function create_oscillators() {
+  const freqs = desired_frequencies();
+  if (oscillators.value.length === freqs.length) {
+    for (const [index, osc] of oscillators.value.entries()) {
+      osc.frequency.setValueAtTime(freqs[index] ?? osc.frequency.value, audioCtx.currentTime);
+    }
+    return;
+  }
   if (oscillators.value.length > 0) {
     await clear_oscillators();
   }
   await set_gain(0.0001);
-  oscillators.value = sortedNotes.value.map(index => {
+  oscillators.value = freqs.map((freq, index) => {
     const osc = audioCtx.createOscillator();
     osc.type = 'sine';
-    const baseFreq = frequencies.value[index % 12] ?? middle_c_freq;
-    const octaveMultiplier = Math.pow(2, Math.floor(index / 12));
-    const freq = baseFreq * octaveMultiplier;
     osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
     osc.connect(gain);
     osc.start();
@@ -218,6 +238,9 @@ const sortedNotes = computed(() => {
     return selectedCopy;
 });
 
+onUnmounted(() => {
+    clear_oscillators().then(() => audioCtx.close());
+});
 
 </script>
 

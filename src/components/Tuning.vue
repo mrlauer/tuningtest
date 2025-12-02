@@ -39,21 +39,36 @@
               density="compact">
               Mute
             </v-btn>
-            <v-select
-              v-model="temperament"
-              :items="[Temperament.EvenTempered, Temperament.QuarterCommaMeantone,Temperament.ThirdCommaMeantone, Temperament.Just]"
-              label="Select Temperament"
-              density="compact"
-              style="max-width: 250px; margin-top: 10px;"
-            ></v-select>
-          <div class="selected-notes">
-            <h3>Selected Notes:</h3>
-            {{  sortedNotes.map(index => notenames[index % 12]).join(', ') }}
-          </div>
-          <div class="current-frequencies" style="margin-top: 10px;">
-            <h3>Current Frequencies:</h3>
-            {{  current_frequencies.join(', ') }}
-          </div>
+            <div class="current-frequencies" style="margin-top: 10px;">
+              <h4>Current Frequencies:</h4>
+              {{  current_frequencies.join(', ') }}
+            </div>
+           
+              <div class="d-flex align-center" style="gap:8px; margin-top:8px;">
+                <v-select
+                  v-model="temperament"
+                  :items="[Temperament.EvenTempered, Temperament.QuarterCommaMeantone, Temperament.ThirdCommaMeantone, Temperament.Just]"
+                  density="compact"
+                  hide-details
+                  style="max-width: 250px;"
+                ></v-select>
+
+                <v-btn 
+                  @click="just_chords = !just_chords;" 
+                  :active="just_chords"
+                  :color="just_chords ? 'primary' : 'default'" 
+                  class="just-chords-button" 
+                  density="comfortable">
+                  Just Chords
+                </v-btn>
+              </div>
+            
+          <!--
+                <div class="selected-notes">
+                <h3>Selected Notes:</h3>
+                {{  sortedNotes.map(index => notenames[index % 12]).join(', ') }}
+                </div>
+          -->
         </v-col>
       </v-row>
     </v-container>
@@ -139,6 +154,7 @@ const frequencies = computed(() => {
 });
 
 const temperament = ref(Temperament.EvenTempered);
+const just_chords = ref(false);
 
 const muted = ref(false);
 
@@ -150,6 +166,24 @@ gain.connect(audioCtx.destination);
 let oscillators = ref([] as OscillatorNode[]);
 
 function desired_frequencies() {
+  if (sortedNotes.value.length === 0) {
+    return [];
+  } else if (just_chords.value) {
+    const rootIdx = sortedNotes.value[0] ?? 0;
+    const rootFreq = frequencies.value[rootIdx % 12] ?? 1 * Math.pow(2, Math.floor(rootIdx / 12));
+    return sortedNotes.value.map(index => {
+      const offset = index - rootIdx;
+      const baseFreq = just_ratios[offset % 12] ?? 1;
+      const octaveMultiplier = Math.pow(2, Math.floor(offset / 12));
+      return rootFreq * baseFreq * octaveMultiplier;
+    });
+  } else {
+    return sortedNotes.value.map(index => {
+      const baseFreq = frequencies.value[index % 12] ?? middle_c_freq;
+      const octaveMultiplier = Math.pow(2, Math.floor(index / 12));
+      return baseFreq * octaveMultiplier;
+    });
+  }
   return sortedNotes.value.map(index => {
     const baseFreq = frequencies.value[index % 12] ?? middle_c_freq;
     const octaveMultiplier = Math.pow(2, Math.floor(index / 12));
@@ -165,7 +199,7 @@ const desired_gain = computed(() => {
   if (muted.value) {
     return 0.0001;
   } else if (oscillators.value.length > 0) {
-    return Math.min(0.2, 0.2 / oscillators.value.length);
+    return Math.min(0.2, 0.6 / oscillators.value.length);
   } else {
     return 0.2;
   }
@@ -202,7 +236,7 @@ async function clear_oscillators() {
     osc.disconnect();
   });
   oscillators.value = [];
-  await set_gain(muted.value ? 0.0001 : 0.2);
+  await set_gain(desired_gain.value);
 }
 
 const notenames = ref(['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']);
@@ -217,12 +251,13 @@ watch(temperament, () => {
     create_oscillators();
 });
 
+watch(just_chords, () => {
+    // Recreate oscillators to reflect frequency changes
+    create_oscillators();
+});
+
 watch(muted, (newVal) => {
-    if (newVal) {
-      set_gain(0.0001);
-    } else {
-      set_gain(0.2);
-    }
+  set_gain(desired_gain.value);
 });
 
 async function set_gain(value: number) {

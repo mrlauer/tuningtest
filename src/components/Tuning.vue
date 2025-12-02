@@ -170,7 +170,7 @@ function desired_frequencies() {
     return [];
   } else if (just_chords.value) {
     const rootIdx = sortedNotes.value[0] ?? 0;
-    const rootFreq = frequencies.value[rootIdx % 12] ?? 1 * Math.pow(2, Math.floor(rootIdx / 12));
+    const rootFreq = (frequencies.value[rootIdx % 12] ?? 1) * Math.pow(2, Math.floor(rootIdx / 12));
     return sortedNotes.value.map(index => {
       const offset = index - rootIdx;
       const baseFreq = just_ratios[offset % 12] ?? 1;
@@ -184,11 +184,6 @@ function desired_frequencies() {
       return baseFreq * octaveMultiplier;
     });
   }
-  return sortedNotes.value.map(index => {
-    const baseFreq = frequencies.value[index % 12] ?? middle_c_freq;
-    const octaveMultiplier = Math.pow(2, Math.floor(index / 12));
-    return baseFreq * octaveMultiplier;
-  });
 }
 
 const current_frequencies = computed(() => {

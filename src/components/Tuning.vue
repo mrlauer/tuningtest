@@ -74,6 +74,15 @@
                   density="compact"
                   value=true>
                   <v-expansion-panel-text>
+                    <v-text-field
+                      :min = "1"
+                      :max = "20"
+                      v-model="periodFactor"
+                      label="Period Factor"
+                      type="number"
+                      density="compact"
+                      style="max-width: 150px; margin-bottom: 10px;"
+                    ></v-text-field>
                     <canvas id="oscilloscope-canvas" width="400" height="200" style="border:1px solid #ccc; margin-top: 10px;"></canvas>
                   </v-expansion-panel-text>
                 </v-expansion-panel>
@@ -305,6 +314,7 @@ const sortedNotes = computed(() => {
 
 // Oscilloscope drawing
 const oscilloscopeRunning = ref(false)
+const periodFactor = ref(2);
 
 function drawOscilloscope() {
     const canvasElement = document.getElementById('oscilloscope-canvas');
@@ -344,7 +354,7 @@ function drawOscilloscope() {
       if (current_frequencies.length != 0) {
         const freq = current_frequencies[0]!;
         const t = audioCtx.currentTime;
-        const period = 4/freq;
+        const period = periodFactor.value / freq;
         const slop = period - t % period;
         const sampleRate = audioCtx.sampleRate;
         offset = Math.round(slop * sampleRate);

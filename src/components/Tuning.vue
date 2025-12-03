@@ -67,6 +67,17 @@
                   Just Chords
                 </v-btn>
               </div>
+              <v-expansion-panels 
+                v-model="oscilloscopeRunning">
+                <v-expansion-panel
+                  title="Oscilloscope"
+                  density="compact"
+                  value=true>
+                  <v-expansion-panel-text>
+                    <canvas id="oscilloscope-canvas" width="400" height="200" style="border:1px solid #ccc; margin-top: 10px;"></canvas>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
             
           <!--
                 <div class="selected-notes">
@@ -81,7 +92,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, onUnmounted, onMounted } from 'vue';
 
 enum Temperament {
   EvenTempered = "Even Tempered", 
@@ -167,6 +178,11 @@ const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)
 const gain: GainNode = audioCtx.createGain();
 gain.gain.setValueAtTime(0.2, audioCtx.currentTime); // Set volume
 gain.connect(audioCtx.destination);
+
+// For the oscilloscope
+const analyser = audioCtx.createAnalyser();
+gain.connect(analyser);
+analyser.fftSize = 8192;
 
 let oscillators = ref([] as OscillatorNode[]);
 
@@ -285,6 +301,83 @@ const sortedNotes = computed(() => {
     const selectedCopy = rawSelection.value.slice();
     selectedCopy.sort((a, b) => a - b);
     return selectedCopy;
+});
+
+// Oscilloscope drawing
+const oscilloscopeRunning = ref(false)
+
+function draw_oscilloscope() {
+    const canvasElement = document.getElementById('oscilloscope-canvas');
+    const canvas = canvasElement as HTMLCanvasElement;
+    if (!canvas) return;
+    const canvasCtx = canvas.getContext('2d');
+    if (!canvasCtx) return;
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    let count = 0;
+
+    function draw() {
+      if (!canvasCtx) return;
+      if (!oscilloscopeRunning.value) return;
+      requestAnimationFrame(draw);
+
+      canvasCtx.stroke();
+
+      analyser.getByteTimeDomainData(dataArray);
+
+      canvasCtx.fillStyle = 'rgb(200, 200, 200)';
+      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+      canvasCtx.lineWidth = 2;
+      canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+
+      canvasCtx.beginPath();
+
+      const sliceWidth = canvas.width * 2.0 / bufferLength;
+      let x = 0;
+
+      // We want to begin at a multiple of the current frequency
+      let offset = 0;
+      const current_frequencies = desired_frequencies();
+      if (current_frequencies.length != 0) {
+        const freq = current_frequencies[0]!;
+        const t = audioCtx.currentTime;
+        const period = 4/freq;
+        const slop = period - t % period;
+        const sampleRate = audioCtx.sampleRate;
+        offset = Math.round(slop * sampleRate);
+      }
+
+      for (let i = 0; i < bufferLength/2; i++) {
+        const idx = i + bufferLength / 2 - offset;
+          const v = dataArray[i + offset]! / 128.0;
+          const y = v * canvas.height / 2;
+
+          if (i === 0) {
+              canvasCtx.moveTo(x, y);
+          } else {
+              canvasCtx.lineTo(x, y);
+          }
+
+          x += sliceWidth;
+      }
+
+      canvasCtx.stroke();
+    }
+
+    draw();
+}
+
+watch(oscilloscopeRunning, (newVal) => {
+    if (newVal) {
+      setTimeout(draw_oscilloscope, 0);
+    }
+});
+
+onMounted(() => {
+    draw_oscilloscope();
 });
 
 onUnmounted(() => {

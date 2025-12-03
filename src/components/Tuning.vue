@@ -43,6 +43,11 @@
               <h4>Current Frequencies:</h4>
               {{  current_frequencies.join(', ') }}
             </div>
+
+            <div v-if="current_ratios.length > 0" class="current-frequencies" style="margin-top: 10px;">
+              <h4>Current Ratios:</h4>
+              {{  current_ratios.join(', ') }}
+            </div>
            
               <div class="d-flex align-center" style="gap:8px; margin-top:8px;">
                 <v-select
@@ -188,6 +193,20 @@ function desired_frequencies() {
 
 const current_frequencies = computed(() => {
   return desired_frequencies().map(freq => freq.toFixed(2));
+});
+
+const current_ratios = computed(() => {
+  const abs_frequencies = desired_frequencies();
+  const results: string[] = [];
+  let last = 0;
+  if (abs_frequencies.length > 0) {
+    const root = abs_frequencies[0] ?? 1
+    for (let f of abs_frequencies.slice(1)) {
+      const ratio = f / root;
+      results.push(ratio.toFixed(4));
+    }
+  }
+  return results;
 });
 
 const desired_gain = computed(() => {

@@ -186,7 +186,7 @@ analyser.fftSize = 8192;
 
 let oscillators = ref([] as OscillatorNode[]);
 
-function desired_frequencies() {
+function desiredFrequencies() {
   if (sortedNotes.value.length === 0) {
     return [];
   } else if (just_chords.value) {
@@ -208,11 +208,11 @@ function desired_frequencies() {
 }
 
 const current_frequencies = computed(() => {
-  return desired_frequencies().map(freq => freq.toFixed(2));
+  return desiredFrequencies().map(freq => freq.toFixed(2));
 });
 
 const current_ratios = computed(() => {
-  const abs_frequencies = desired_frequencies();
+  const abs_frequencies = desiredFrequencies();
   const results: string[] = [];
   let last = 0;
   if (abs_frequencies.length > 0) {
@@ -235,8 +235,8 @@ const desired_gain = computed(() => {
   }
 });
 
-async function create_oscillators() {
-  const freqs = desired_frequencies();
+async function createOscillators() {
+  const freqs = desiredFrequencies();
   if (oscillators.value.length === freqs.length) {
     for (const [index, osc] of oscillators.value.entries()) {
       osc.frequency.setValueAtTime(freqs[index] ?? osc.frequency.value, audioCtx.currentTime);
@@ -244,9 +244,9 @@ async function create_oscillators() {
     return;
   }
   if (oscillators.value.length > 0) {
-    await clear_oscillators();
+    await clearOscillators();
   }
-  await set_gain(0.0001);
+  await setGain(0.0001);
   oscillators.value = freqs.map((freq, index) => {
     const osc = audioCtx.createOscillator();
     osc.type = 'sine';
@@ -255,42 +255,42 @@ async function create_oscillators() {
     osc.start();
     return osc;
   });
-  await set_gain(desired_gain.value);
+  await setGain(desired_gain.value);
 }
 
-async function clear_oscillators() {
+async function clearOscillators() {
   if (oscillators.value.length === 0) return;
-  await set_gain(0.0001);
+  await setGain(0.0001);
   oscillators.value.forEach(osc => {
     osc.stop();
     osc.disconnect();
   });
   oscillators.value = [];
-  await set_gain(desired_gain.value);
+  await setGain(desired_gain.value);
 }
 
 const notenames = ref(['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']);
 const rawSelection = ref([] as number[]);
 
 watch(rawSelection, (newVal: number[], oldValue: number[]) => {
-    create_oscillators();
+    createOscillators();
 });
 
 watch(temperament, () => {
     // Recreate oscillators to reflect frequency changes
-    create_oscillators();
+    createOscillators();
 });
 
 watch(just_chords, () => {
     // Recreate oscillators to reflect frequency changes
-    create_oscillators();
+    createOscillators();
 });
 
 watch(muted, (newVal) => {
-  set_gain(desired_gain.value);
+  setGain(desired_gain.value);
 });
 
-async function set_gain(value: number) {
+async function setGain(value: number) {
   const delay = 0.02;
   gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime); 
   gain.gain.exponentialRampToValueAtTime(value, audioCtx.currentTime + delay);
@@ -306,7 +306,7 @@ const sortedNotes = computed(() => {
 // Oscilloscope drawing
 const oscilloscopeRunning = ref(false)
 
-function draw_oscilloscope() {
+function drawOscilloscope() {
     const canvasElement = document.getElementById('oscilloscope-canvas');
     const canvas = canvasElement as HTMLCanvasElement;
     if (!canvas) return;
@@ -340,7 +340,7 @@ function draw_oscilloscope() {
 
       // We want to begin at a multiple of the current frequency
       let offset = 0;
-      const current_frequencies = desired_frequencies();
+      const current_frequencies = desiredFrequencies();
       if (current_frequencies.length != 0) {
         const freq = current_frequencies[0]!;
         const t = audioCtx.currentTime;
@@ -372,16 +372,16 @@ function draw_oscilloscope() {
 
 watch(oscilloscopeRunning, (newVal) => {
     if (newVal) {
-      setTimeout(draw_oscilloscope, 0);
+      setTimeout(drawOscilloscope, 0);
     }
 });
 
 onMounted(() => {
-    draw_oscilloscope();
+    drawOscilloscope();
 });
 
 onUnmounted(() => {
-    clear_oscillators().then(() => audioCtx.close());
+    clearOscillators().then(() => audioCtx.close());
 });
 
 </script>

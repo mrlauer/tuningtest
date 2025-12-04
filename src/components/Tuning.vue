@@ -325,17 +325,21 @@ function drawOscilloscope() {
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-    let count = 0;
-
-    function draw() {
+    let lastTime = performance.now();
+    function draw(timestamp: number) {
       if (!canvasCtx) return;
       if (!oscilloscopeRunning.value) return;
       requestAnimationFrame(draw);
 
+      const elapsed = timestamp - lastTime;
+      if (elapsed < 10) {
+        return; // limit to ~100fps
+      }
+
       // We want to begin at a multiple of the current frequency
       let offset = 0;
       const current_frequencies = desiredFrequencies();
-      if (current_frequencies.length != 0) {
+      if (periodFactor.value != 0 && current_frequencies.length != 0) {
         const freq = current_frequencies[0]!;
         const t = audioCtx.currentTime;
         const period = periodFactor.value / freq;
@@ -348,6 +352,7 @@ function drawOscilloscope() {
         // do nothing!
         return;
       }
+      lastTime = timestamp;
 
       canvasCtx.stroke();
 
@@ -381,7 +386,7 @@ function drawOscilloscope() {
       canvasCtx.stroke();
     }
 
-    draw();
+    draw(lastTime - 16);
 }
 
 watch(oscilloscopeRunning, (newVal) => {

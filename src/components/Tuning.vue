@@ -66,6 +66,15 @@
                   density="comfortable">
                   Just Chords
                 </v-btn>
+
+                <v-select
+                  v-model="waveform"
+                  :items="['sine', 'triangle', 'square', 'sawtooth']"
+                  label="Waveform"
+                  density="compact"
+                  hide-details
+                  style="max-width: 150px;"
+                ></v-select>
               </div>
               <v-expansion-panels 
                 v-model="oscilloscopeRunning">
@@ -82,7 +91,12 @@
                       density="compact"
                       style="max-width: 150px; margin-bottom: 10px;"
                     ></v-text-field>
-                    <canvas id="oscilloscope-canvas" width="400" height="200" style="border:1px solid #ccc; margin-top: 10px;"></canvas>
+                    <div>
+                      <canvas id="oscilloscope-canvas" width="400" height="200" style="border:1px solid #ccc; margin-top: 10px;"></canvas>
+                    </div>
+                    <div>
+                      <canvas id="frequency-canvas" width="400" height="200" style="border:1px solid #ccc; margin-top: 10px;"></canvas>
+                    </div>
                   </v-expansion-panel-text>
                 </v-expansion-panel>
               </v-expansion-panels>
@@ -179,6 +193,7 @@ const frequencies = computed(() => {
 
 const temperament = ref(Temperament.EvenTempered);
 const just_chords = ref(false);
+const waveform = ref<"sine" | "triangle" | "square" | "sawtooth"> ("sine");
 
 const muted = ref(false);
 
@@ -248,6 +263,7 @@ async function createOscillators() {
   if (oscillators.value.length === freqs.length) {
     for (const [index, osc] of oscillators.value.entries()) {
       osc.frequency.setValueAtTime(freqs[index] ?? osc.frequency.value, audioCtx.currentTime);
+      osc.type = waveform.value;
     }
     return;
   }
@@ -257,7 +273,7 @@ async function createOscillators() {
   await setGain(0.0001);
   oscillators.value = freqs.map((freq, index) => {
     const osc = audioCtx.createOscillator();
-    osc.type = 'sine';
+    osc.type = waveform.value;
     osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
     osc.connect(gain);
     osc.start();
@@ -290,6 +306,11 @@ watch(temperament, () => {
 });
 
 watch(just_chords, () => {
+    // Recreate oscillators to reflect frequency changes
+    createOscillators();
+});
+
+watch(waveform, () => {
     // Recreate oscillators to reflect frequency changes
     createOscillators();
 });
@@ -384,6 +405,37 @@ function drawOscilloscope() {
       }
 
       canvasCtx.stroke();
+
+      // Add frequency domain plotting
+      const freqCanvasElement = document.getElementById('frequency-canvas');
+      const freqCanvas = freqCanvasElement as HTMLCanvasElement;
+      if (!freqCanvas) return;
+      const freqCanvasCtx = freqCanvas.getContext('2d');
+      if (!freqCanvasCtx) return;
+
+      analyser.getByteFrequencyData(dataArray);
+      freqCanvasCtx.fillStyle = 'rgb(200, 200, 200)';
+      freqCanvasCtx.fillRect(0, 0, freqCanvas.width, freqCanvas.height);
+      freqCanvasCtx.lineWidth = 1;
+      freqCanvasCtx.strokeStyle = 'rgb(0, 0, 0)'; 
+      freqCanvasCtx.beginPath();
+      const scale = 2;
+      const toSample = Math.round(bufferLength / scale);
+      const freqSliceWidth = freqCanvas.width / toSample;
+      let fx = 0; 
+      for (let i = 0; i < toSample; i++) {
+          const v = dataArray[i]! / 255.0;
+          const fy = freqCanvas.height - (v * freqCanvas.height);
+
+          if (i === 0) {
+              freqCanvasCtx.moveTo(fx, fy);
+          } else {
+              freqCanvasCtx.lineTo(fx, fy);
+          }
+
+          fx += freqSliceWidth;
+      }
+      freqCanvasCtx.stroke(); 
     }
 
     draw(lastTime - 16);

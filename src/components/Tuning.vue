@@ -76,7 +76,6 @@
                   <v-expansion-panel-text>
                     <v-text-field
                       :min = "1"
-                      :max = "20"
                       v-model="periodFactor"
                       label="Period Factor"
                       type="number"
@@ -333,6 +332,23 @@ function drawOscilloscope() {
       if (!oscilloscopeRunning.value) return;
       requestAnimationFrame(draw);
 
+      // We want to begin at a multiple of the current frequency
+      let offset = 0;
+      const current_frequencies = desiredFrequencies();
+      if (current_frequencies.length != 0) {
+        const freq = current_frequencies[0]!;
+        const t = audioCtx.currentTime;
+        const period = periodFactor.value / freq;
+        const slop = period - t % period;
+        const sampleRate = audioCtx.sampleRate;
+        offset = Math.round(slop * sampleRate);
+      }
+
+      if (offset < 0 || offset >= bufferLength / 2) {
+        // do nothing!
+        return;
+      }
+
       canvasCtx.stroke();
 
       analyser.getByteTimeDomainData(dataArray);
@@ -347,18 +363,6 @@ function drawOscilloscope() {
 
       const sliceWidth = canvas.width * 2.0 / bufferLength;
       let x = 0;
-
-      // We want to begin at a multiple of the current frequency
-      let offset = 0;
-      const current_frequencies = desiredFrequencies();
-      if (current_frequencies.length != 0) {
-        const freq = current_frequencies[0]!;
-        const t = audioCtx.currentTime;
-        const period = periodFactor.value / freq;
-        const slop = period - t % period;
-        const sampleRate = audioCtx.sampleRate;
-        offset = Math.round(slop * sampleRate);
-      }
 
       for (let i = 0; i < bufferLength/2; i++) {
         const idx = i + bufferLength / 2 - offset;

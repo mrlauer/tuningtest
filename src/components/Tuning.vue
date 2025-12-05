@@ -84,7 +84,8 @@
                   value=true>
                   <v-expansion-panel-text>
                     <v-text-field
-                      :min = "1"
+                      :min = "0"
+                      :step = "0.1"
                       v-model="periodFactor"
                       label="Period Factor"
                       type="number"
@@ -92,10 +93,20 @@
                       style="max-width: 150px; margin-bottom: 10px;"
                     ></v-text-field>
                     <div>
-                      <canvas id="oscilloscope-canvas" width="400" height="200" style="border:1px solid #ccc; margin-top: 10px;"></canvas>
+                      <canvas 
+                        id="oscilloscope-canvas" 
+                        ref="oscilloscope-canvas" 
+                        width="400" height="200" 
+                        style="border:1px solid #ccc; margin-top: 10px;">
+                      </canvas>
                     </div>
                     <div>
-                      <canvas id="frequency-canvas" width="400" height="200" style="border:1px solid #ccc; margin-top: 10px;"></canvas>
+                      <canvas 
+                        id="frequency-canvas" 
+                        ref="frequency-canvas" 
+                        width="400" height="200" 
+                        style="border:1px solid #ccc; margin-top: 10px;">
+                      </canvas>
                     </div>
                   </v-expansion-panel-text>
                 </v-expansion-panel>
@@ -114,7 +125,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch, onUnmounted, onMounted } from 'vue';
+import { ref, computed, watch, onUnmounted, onMounted, useTemplateRef } from 'vue';
 
 enum Temperament {
   EvenTempered = "Even Tempered", 
@@ -335,11 +346,12 @@ const sortedNotes = computed(() => {
 // Oscilloscope drawing
 const oscilloscopeRunning = ref(false)
 const periodFactor = ref(2);
+const oscilloscopeCanvasElement = useTemplateRef('oscilloscope-canvas');
+const frequencyCanvasElement = useTemplateRef('frequency-canvas');
 
 function drawOscilloscope() {
-    const canvasElement = document.getElementById('oscilloscope-canvas');
-    const canvas = canvasElement as HTMLCanvasElement;
-    if (!canvas) return;
+    const canvas = oscilloscopeCanvasElement.value;
+    if (canvas === null) return;
     const canvasCtx = canvas.getContext('2d');
     if (!canvasCtx) return;
 
@@ -348,7 +360,7 @@ function drawOscilloscope() {
 
     let lastTime = performance.now();
     function draw(timestamp: number) {
-      if (!canvasCtx) return;
+      if (!canvas || !canvasCtx) return;
       if (!oscilloscopeRunning.value) return;
       requestAnimationFrame(draw);
 
@@ -407,25 +419,24 @@ function drawOscilloscope() {
       canvasCtx.stroke();
 
       // Add frequency domain plotting
-      const freqCanvasElement = document.getElementById('frequency-canvas');
-      const freqCanvas = freqCanvasElement as HTMLCanvasElement;
-      if (!freqCanvas) return;
-      const freqCanvasCtx = freqCanvas.getContext('2d');
+      const frequencyCanvas = frequencyCanvasElement.value;
+      if (!frequencyCanvas) return;
+      const freqCanvasCtx = frequencyCanvas.getContext('2d');
       if (!freqCanvasCtx) return;
 
       analyser.getByteFrequencyData(dataArray);
       freqCanvasCtx.fillStyle = 'rgb(200, 200, 200)';
-      freqCanvasCtx.fillRect(0, 0, freqCanvas.width, freqCanvas.height);
+      freqCanvasCtx.fillRect(0, 0, frequencyCanvas.width, frequencyCanvas.height);
       freqCanvasCtx.lineWidth = 1;
       freqCanvasCtx.strokeStyle = 'rgb(0, 0, 0)'; 
       freqCanvasCtx.beginPath();
       const scale = 2;
       const toSample = Math.round(bufferLength / scale);
-      const freqSliceWidth = freqCanvas.width / toSample;
+      const freqSliceWidth = frequencyCanvas.width / toSample;
       let fx = 0; 
       for (let i = 0; i < toSample; i++) {
           const v = dataArray[i]! / 255.0;
-          const fy = freqCanvas.height - (v * freqCanvas.height);
+          const fy = frequencyCanvas.height - (v * frequencyCanvas.height);
 
           if (i === 0) {
               freqCanvasCtx.moveTo(fx, fy);

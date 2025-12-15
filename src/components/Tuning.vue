@@ -269,12 +269,23 @@ const desired_gain = computed(() => {
   }
 });
 
+function setOscillatorPeriodicWave(osc: OscillatorNode, amplitudes: number[]) {
+  const zeros = Array(amplitudes.length).fill(0);
+  const wave = audioCtx.createPeriodicWave(amplitudes, new Float32Array(zeros));
+  osc.setPeriodicWave(wave);
+}
+
+function setOscillatorWaveform(osc: OscillatorNode) {
+  const wf = waveform.value;
+  // TODO: call setOscillatorPeriodicWave if not one of the basics
+  osc.type = wf;
+}
+
 async function createOscillators() {
   const freqs = desiredFrequencies();
   if (oscillators.value.length === freqs.length) {
     for (const [index, osc] of oscillators.value.entries()) {
-      osc.frequency.setValueAtTime(freqs[index] ?? osc.frequency.value, audioCtx.currentTime);
-      osc.type = waveform.value;
+      setOscillatorWaveform(osc);
     }
     return;
   }
@@ -284,7 +295,7 @@ async function createOscillators() {
   await setGain(0.0001);
   oscillators.value = freqs.map((freq, index) => {
     const osc = audioCtx.createOscillator();
-    osc.type = waveform.value;
+    setOscillatorWaveform(osc);
     osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
     osc.connect(gain);
     osc.start();

@@ -52,7 +52,7 @@
               <div class="d-flex align-center" style="gap:8px; margin-top:8px;">
                 <v-select
                   v-model="temperament"
-                  :items="[Temperament.EvenTempered, Temperament.QuarterCommaMeantone, Temperament.ThirdCommaMeantone, Temperament.Just]"
+                  :items="[Temperament.EvenTempered, Temperament.QuarterCommaMeantone, Temperament.ThirdCommaMeantone, Temperament.Pythagorean, Temperament.Just]"
                   density="compact"
                   hide-details
                   style="max-width: 250px;"
@@ -142,6 +142,7 @@ enum Temperament {
   EvenTempered = "Even Tempered", 
   QuarterCommaMeantone = "1/4 Comma Meantone",
   ThirdCommaMeantone = "1/3 Comma Meantone",
+  Pythagorean = "Pythagorean",
   Just = "Just Intonation"
 };
 
@@ -152,39 +153,30 @@ const even_tempered_frequncies = Array.from({ length: 12 }, (_, i) =>
     middle_c_freq * Math.pow(even_tempered_ratio, i)
 );
 
-const qalpha = Math.pow(5, 0.25);
-const qalphai = 1 / qalpha;
-const quartercomma_ratios = [
+function computeMeantoneRatios(fifth: number): number[] {
+  return [
     1, // C
-    1 * qalphai ** 5 * 8, // C♯
-    1 * qalpha ** 2 / 2, // D
-    1 * qalphai ** 3 * 4, // E♭
-    1 * qalpha ** 4 / 4, // E
-    1 * qalphai * 2, // F
-    1 * qalpha ** 6 / 8, // F♯
-    1 * qalpha, // G
-    1 * qalphai ** 4 * 8, // A♭
-    1 * qalpha ** 3 / 2, // A
-    1 * qalphai ** 2 * 4, // B♭
-    1 * qalpha ** 5 / 4 // B
-];
+    1 * fifth ** -5 * 8, // C♯
+    1 * fifth ** 2 / 2, // D
+    1 * fifth ** -3 * 4, // E♭
+    1 * fifth ** 4 / 4, // E
+    1 / fifth * 2, // F
+    1 * fifth ** 6 / 8, // F♯
+    1 * fifth, // G
+    1 * fifth ** -4 * 8, // A♭
+    1 * fifth ** 3 / 2, // A
+    1 * fifth ** -2 * 4, // B♭
+    1 * fifth ** 5 / 4 // B
+  ];
+}
 
-const talphai = Math.pow(3 / 10, 1 / 3);
-const talpha = 1 / talphai; 
-const third_comma_ratios = [
-    1, // C
-    1 * talphai ** 5 * 8, // C♯
-    1 * talpha ** 2 / 2, // D
-    1 * talphai ** 3 * 4, // E♭
-    1 * talpha ** 4 / 4, // E
-    1 * talphai * 2, // F
-    1 * talpha ** 6 / 8, // F♯
-    1 * talpha, // G
-    1 * talphai ** 4 * 8, // A♭
-    1 * talpha ** 3 / 2, // A
-    1 * talphai ** 2 * 4, // B♭
-    1 * talpha ** 5 / 4 // B
-];
+const qalpha = Math.pow(5, 0.25);
+const quartercomma_ratios = computeMeantoneRatios(qalpha);
+
+const talpha = Math.pow(3 / 10, -1 / 3);
+const third_comma_ratios = computeMeantoneRatios(talpha);
+
+const pythagorean_ratios = computeMeantoneRatios(1.5);
 
 const just_ratios = [
     1,          // C
@@ -206,6 +198,8 @@ const frequencies = computed(() => {
     return quartercomma_ratios.map(ratio => middle_c_freq * ratio);
   } else if (temperament.value === Temperament.ThirdCommaMeantone) {
     return third_comma_ratios.map(ratio => middle_c_freq * ratio);
+  } else if (temperament.value === Temperament.Pythagorean) {
+    return pythagorean_ratios.map(ratio => middle_c_freq * ratio);
   } else if (temperament.value === Temperament.Just) {
     return just_ratios.map(ratio => middle_c_freq * ratio);
   } else {

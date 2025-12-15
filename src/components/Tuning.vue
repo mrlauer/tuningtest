@@ -75,6 +75,17 @@
                   hide-details
                   style="max-width: 150px;"
                 ></v-select>
+
+                <v-number-input
+                  v-model = "octave_transposition"
+                  density="compact"
+                  control-variant="stacked"
+                  label="Octave"
+                  hide-details
+                  :max = 3
+                  :min = -3
+                  style="max-width: 150px;"
+                />
               </div>
               <v-expansion-panels 
                 v-model="oscilloscopeRunning">
@@ -205,7 +216,7 @@ const frequencies = computed(() => {
 const temperament = ref(Temperament.EvenTempered);
 const just_chords = ref(false);
 const waveform = ref<"sine" | "triangle" | "square" | "sawtooth"> ("sine");
-
+const octave_transposition = ref(0);
 const muted = ref(false);
 
 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -229,13 +240,13 @@ function desiredFrequencies() {
     return sortedNotes.value.map(index => {
       const offset = index - rootIdx;
       const baseFreq = just_ratios[offset % 12] ?? 1;
-      const octaveMultiplier = Math.pow(2, Math.floor(offset / 12));
+      const octaveMultiplier = Math.pow(2, Math.floor(offset / 12) + octave_transposition.value);
       return rootFreq * baseFreq * octaveMultiplier;
     });
   } else {
     return sortedNotes.value.map(index => {
       const baseFreq = frequencies.value[index % 12] ?? middle_c_freq;
-      const octaveMultiplier = Math.pow(2, Math.floor(index / 12));
+      const octaveMultiplier = Math.pow(2, Math.floor(index / 12) + octave_transposition.value);
       return baseFreq * octaveMultiplier;
     });
   }
@@ -286,6 +297,7 @@ async function createOscillators() {
   if (oscillators.value.length === freqs.length) {
     for (const [index, osc] of oscillators.value.entries()) {
       setOscillatorWaveform(osc);
+      osc.frequency.setValueAtTime(freqs[index]!, audioCtx.currentTime);
     }
     return;
   }
@@ -333,6 +345,11 @@ watch(just_chords, () => {
 });
 
 watch(waveform, () => {
+    // Recreate oscillators to reflect frequency changes
+    createOscillators();
+});
+
+watch(octave_transposition, () => {
     // Recreate oscillators to reflect frequency changes
     createOscillators();
 });
